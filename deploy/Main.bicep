@@ -1,9 +1,10 @@
 targetScope = 'subscription'
 
 param uniquePrefix string
-param resourceGroupName string
 
 var location = deployment().location
+var resourceGroupName = '${uniquePrefix}-rg'
+var acrName = '${replace(uniquePrefix, '-', '')}acr'
 
 resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: resourceGroupName
@@ -15,7 +16,7 @@ module acrDeploy 'Acr.bicep' = {
   scope: rg
   params: {
     location: location
-    name: '${uniquePrefix}-acr'
+    name: acrName
     sku: 'Basic'
     adminUserEnabled: true
   }
@@ -24,6 +25,7 @@ module acrDeploy 'Acr.bicep' = {
 output deploymentOutputs object = {
   resourceGroupName: resourceGroupName
   acrDeployment: {
+    name: acrName
     loginServer: acrDeploy.outputs.loginServer
   }
 }

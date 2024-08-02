@@ -1,12 +1,6 @@
 param(
     [Parameter(Mandatory=$true)]
-    [string]$location,
-
-    [Parameter(Mandatory=$true)]
-    [string]$tenantId,
-
-    [Parameter(Mandatory=$true)]
-    [string]$subscriptionId
+    [string]$location
 )
 
 
@@ -23,28 +17,20 @@ function Get-UniquePrefix([int]$length) {
     return $uniquePrefix
 }
 
+Write-Host "Starting deployment..." -ForegroundColor Cyan
+
 $uniquePrefix = Get-UniquePrefix(6)
-
-Write-Host "Your unique prefix for the Azure resource group and resources is " -NoNewline
-Write-Host $uniquePrefix -ForegroundColor Cyan
-
-#az login --scope https://management.core.windows.net//.default
-# az config set core.login_experience_v2=off
-# az login --tenant $tenantId
-# az account set --subscription $subscriptionId
+$uniquePrefix = "dometrain-" + $uniquePrefix
 
 $templateFileName = [IO.Path]::Combine($PSScriptRoot, "Main.bicep")
+$deploymentName = "$uniquePrefix-deployment"
+$resourceGroupName = "$uniquePrefix-rg"
 
-Write-Host "Starting deployment..."
-
-$deploymentName = "dometrain-$uniquePrefix-deployment-$(Get-Random)"
-$resourceGroupName = "dometrain-$uniquePrefix-rg"
-
-$output = az deployment group create `
-    --resource-group $resourceGroupName `
+$output = az deployment sub create `
+    --location $location `
     --name $deploymentName `
     --template-file $templateFileName `
-    --parameters uniquePrefix="dometrain-$uniquePrefix" `
+    --parameters uniquePrefix="$uniquePrefix" `
 | ConvertFrom-Json
 
 if (!$output) {
@@ -52,3 +38,16 @@ if (!$output) {
     az group delete --name $resourceGroupName --yes --no-wait
     exit 1
 }
+
+az deployment sub show --name $deploymentName --query properties.outputs --output json
+
+$deployment = az deployment sub show --name $deploymentName --query properties.outputs --output json
+$deploymentJson = $deployment | ConvertFrom-Json
+
+$acrName = $deploymentJson.deploymentOutputs.value.acrDeployment.name
+
+Write-Host "Azure Container Registry credentials" -ForegroundColor Cyan
+
+az acr credential show --name $acrName --resource-group $resourceGroupName
+
+Write-Host "Deployment completed successfully." -ForegroundColor Green
