@@ -9,6 +9,8 @@ namespace WebApi
 
             app.MapGet("/", () => "Hello World!");
 
+            app.MapGet("/health", () => "OK");
+
             app.Run();
         }
     }
