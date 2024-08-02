@@ -1,0 +1,60 @@
+services:
+  sql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    hostname: sql
+    ports:
+      - "2433:1433"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/opt/mssql-tools/bin/sqlcmd",
+          "-S",
+          "localhost",
+          "-U",
+          "sa",
+          "-P",
+          "gsjTuSW=fVR!a5Tv",
+          "-Q",
+          "select 1;",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    environment:
+      SA_PASSWORD: "gsjTuSW=fVR!a5Tv"
+      ACCEPT_EULA: "Y"
+    networks:
+      - mynetwork
+
+  api:
+    build:
+      context: .\dotnet-web-api\WebApi
+      dockerfile: .\docker\Dockerfile
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-O", "/dev/null", "http://api:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - mynetwork
+
+  frontend:
+    build:
+      context: .\react-app
+      dockerfile: .\docker\Dockerfile
+    ports:
+      - "9080:80"
+    healthcheck:
+      test: ["CMD", "wget", "-O", "/dev/null", "http://frontend"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - mynetwork
+
+networks:
+  mynetwork:
+    driver: bridge
