@@ -1,6 +1,9 @@
 param(
     [Parameter(Mandatory=$true)]
-    [string]$location
+    [string]$location,
+
+    [Parameter(Mandatory=$true)]
+    [string]$resourceGroupForSshKey
 )
 
 
@@ -25,12 +28,19 @@ $uniquePrefix = "dometrain-" + $uniquePrefix
 $templateFileName = [IO.Path]::Combine($PSScriptRoot, "Main.bicep")
 $deploymentName = "$uniquePrefix-deployment"
 $resourceGroupName = "$uniquePrefix-rg"
+$sshKeyName = "$uniquePrefix-ssh-key"
+
+$sshKey = az sshkey create `
+    --name $sshKeyName `
+    --resource-group $resourceGroupForSshKey `
+    --query publicKey `
+    -o tsv
 
 $output = az deployment sub create `
     --location $location `
     --name $deploymentName `
     --template-file $templateFileName `
-    --parameters uniquePrefix="$uniquePrefix" `
+    --parameters uniquePrefix="$uniquePrefix" sshKey="$sshKey" `
 | ConvertFrom-Json
 
 if (!$output) {
@@ -43,6 +53,16 @@ az deployment sub show --name $deploymentName --query properties.outputs --outpu
 
 $deployment = az deployment sub show --name $deploymentName --query properties.outputs --output json
 $deploymentJson = $deployment | ConvertFrom-Json
+
+$aksClusterName = $deploymentJson.deploymentOutputs.value.aksDeployment.clusterName
+
+Write-Host "Adding node pool to the AKS cluster..." -ForegroundColor Cyan
+
+az aks nodepool add `
+    -g $resourceGroupName `
+    -n appnodepool `
+    --cluster-name $aksClusterName `
+    --os-sku Ubuntu
 
 $acrName = $deploymentJson.deploymentOutputs.value.acrDeployment.name
 
